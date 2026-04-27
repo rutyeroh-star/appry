@@ -68,17 +68,27 @@ if archivo_csv is not None:
                 st.warning("⚠️ Los datos seleccionados rozan el límite de memoria. Se analizará la mayor cantidad posible (se recortará el exceso).")
                 datos_texto = datos_texto[:35000]
             
-            # Instrucción detallada para la IA
+            # --- NUEVO: Verificador visual ---
+            # Esto te permite ver exactamente qué texto está recibiendo la IA
+            with st.expander("👀 Ver los datos exactos que se enviarán a ChatGPT"):
+                st.text(datos_texto)
+            
+            # --- NUEVO: Prompt mejorado y más estricto ---
             prompt_quimico = f"""
             Actúa como un experto en química computacional y descubrimiento de fármacos.
-            A continuación te presento una muestra de datos de descriptores moleculares (en formato CSV):
+            A continuación te presento los valores exactos calculados para una serie de moléculas. 
+            Están en formato de tabla (CSV):
             
+            ```csv
             {datos_texto}
+            ```
             
-            Por favor, realiza lo siguiente:
-            1. Identifica los principales descriptores presentes (ej. MW, LogP, TPSA, nHDon, nHAcc).
-            2. Evalúa si, en general, estas moléculas cumplen con la Regla de los 5 de Lipinski o las reglas de Veber.
+            BASADO ESTRICTAMENTE EN LOS NÚMEROS DE LA TABLA ARRIBA, realiza lo siguiente:
+            1. Menciona explícitamente los valores numéricos que estás leyendo de la tabla (ejemplo: "La primera molécula tiene un MW de X y un LogP de Y").
+            2. Evalúa si estas moléculas cumplen con la Regla de los 5 de Lipinski o las reglas de Veber, basándote en esos valores específicos.
             3. Haz una predicción breve sobre su posible permeabilidad y biodisponibilidad oral.
+            
+            NOTA: Si falta algún descriptor clave en la tabla, analiza únicamente con los datos numéricos que SÍ están presentes. No respondas que no tienes datos, usa los que están en la tabla.
             """
             
             # Llamada a la API mientras mostramos un mensaje de carga

@@ -21,7 +21,7 @@ archivo_csv = st.file_uploader("Sube tu archivo de descriptores (.csv)", type=["
 
 if archivo_csv is not None:
     # Leer el archivo con pandas
-    df = pd.read_csv(archivo_csv)
+    df = pd.read_csv(archivo_csv, sep=';')
     
     st.write("### 📋 Vista previa de tus datos:")
     st.dataframe(df.head()) # Muestra las primeras filas para confirmar que cargó bien

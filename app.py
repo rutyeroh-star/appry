@@ -73,30 +73,34 @@ if archivo_csv is not None:
             with st.expander("👀 Ver los datos exactos que se enviarán a ChatGPT"):
                 st.text(datos_texto)
             
-            # --- NUEVO: Prompt mejorado y más estricto ---
-            prompt_quimico = f"""
-            Actúa como un experto en química computacional y descubrimiento de fármacos.
-            A continuación te presento los valores exactos calculados para una serie de moléculas. 
-            Están en formato de tabla (CSV):
+            # --- NUEVO: Prompt super estricto con System y User ---
+            instrucciones_sistema = """
+            Eres un analista experto en quimioinformática. Tu única tarea es analizar los datos numéricos exactos que el usuario te entrega en formato CSV.
             
-            ```csv
-            {datos_texto}
-            ```
+            REGLAS ESTRICTAS QUE DEBES OBEDECER:
+            1. ESTÁ PROHIBIDO dar explicaciones teóricas generales o definir qué es la Regla de Lipinski/Veber.
+            2. DEBES hacer el análisis fila por fila (molécula por molécula).
+            3. Usa SÓLO los valores numéricos presentes en la tabla. Si no tienes LogP o donadores de H, evalúa únicamente con los datos que SÍ tienes (ej. MW). No te quejes de que faltan datos.
             
-            BASADO ESTRICTAMENTE EN LOS NÚMEROS DE LA TABLA ARRIBA, realiza lo siguiente:
-            1. Menciona explícitamente los valores numéricos que estás leyendo de la tabla (ejemplo: "La primera molécula tiene un MW de X y un LogP de Y").
-            2. Evalúa si estas moléculas cumplen con la Regla de los 5 de Lipinski o las reglas de Veber, basándote en esos valores específicos.
-            3. Haz una predicción breve sobre su posible permeabilidad y biodisponibilidad oral.
+            DEBES USAR ESTE FORMATO EXACTO para cada fila que leas:
             
-            NOTA: Si falta algún descriptor clave en la tabla, analiza únicamente con los datos numéricos que SÍ están presentes. No respondas que no tienes datos, usa los que están en la tabla.
+            🔹 Molécula: [Nombre, ID o número de fila]
+            - Valores extraídos: [Menciona los números exactos de la tabla, ej: MW = 664.86, Sv = 55.14]
+            - Evaluación de Reglas: [Evalúa solo con los valores extraídos. Ej: El MW es mayor a 500, por lo que viola una regla de Lipinski.]
+            - Predicción: [Tu análisis breve basado en estos números.]
             """
+            
+            prompt_usuario = f"Aquí tienes la tabla de datos CSV. Procede con el análisis fila por fila usando la estructura obligatoria:\n\n{datos_texto}"
             
             # Llamada a la API mientras mostramos un mensaje de carga
             with st.spinner('Analizando el espacio químico...'):
                 try:
                     respuesta = client.chat.completions.create(
                         model="gpt-3.5-turbo",
-                        messages=[{"role": "user", "content": prompt_quimico}]
+                        messages=[
+                            {"role": "system", "content": instrucciones_sistema},
+                            {"role": "user", "content": prompt_usuario}
+                        ]
                     )
                     
                     # Mostrar el resultado

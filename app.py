@@ -20,7 +20,7 @@ st.sidebar.caption("La llave proporcionada por el profesor no se guarda, solo se
 archivo_csv = st.file_uploader("Sube tu archivo de descriptores (.csv)", type=["csv"])
 
 if archivo_csv is not None:
-    # Leer el archivo con pandas
+    # Leer el archivo con pandas (ajustado para separar por punto y coma)
     df = pd.read_csv(archivo_csv, sep=';')
     
     st.write("### 📋 Vista previa de tus datos:")
@@ -34,9 +34,10 @@ if archivo_csv is not None:
             # Inicializar el cliente de OpenAI con la llave ingresada
             client = OpenAI(api_key=api_key)
             
-            # Convertimos las primeras 5 filas del CSV a texto para enviarlo a la IA
-            # (Enviamos solo una muestra para no sobrepasar el límite de memoria de ChatGPT)
-            datos_texto = df.head(5).to_csv(index=False)
+            # Reducimos los datos para no exceder la memoria de ChatGPT (Error de Tokens)
+            # Tomamos solo las primeras 3 filas y las primeras 40 columnas
+            columnas_reducidas = df.columns[:40]
+            datos_texto = df.head(3)[columnas_reducidas].to_csv(index=False)
             
             # Instrucción detallada para la IA
             prompt_quimico = f"""

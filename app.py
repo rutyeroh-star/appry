@@ -45,6 +45,13 @@ if archivo_csv is not None:
     # 2. Control de filas (moléculas)
     num_filas = st.slider("Número de moléculas (filas) a incluir:", min_value=1, max_value=50, value=5)
     
+    # --- NUEVO: Área para la leyenda ---
+    st.write("### 📖 Leyenda de Siglas (Opcional)")
+    leyenda_usuario = st.text_area(
+        "Si elegiste descriptores muy específicos de alvaDesc, pega aquí su significado para que la IA los interprete correctamente:",
+        placeholder="Ejemplo:\nSv = Suma de volúmenes atómicos de van der Waals\nSp = Suma de polarizabilidades atómicas"
+    )
+    
     # 3. Botón para iniciar el análisis
     if st.button("🧠 Analizar e Interpretar Datos"):
         if not api_key:
@@ -73,24 +80,26 @@ if archivo_csv is not None:
             with st.expander("👀 Ver los datos exactos que se enviarán a ChatGPT"):
                 st.text(datos_texto)
             
-            # --- NUEVO: Prompt super estricto con System y User ---
-            instrucciones_sistema = """
-            Eres un analista experto en quimioinformática. Tu única tarea es analizar los datos numéricos exactos que el usuario te entrega en formato CSV.
+            # Preparamos el texto de la leyenda si el usuario escribió algo
+            texto_leyenda = f"\nDiccionario de Descriptores proporcionado por el usuario:\n{leyenda_usuario}\n" if leyenda_usuario.strip() else ""
             
-            REGLAS ESTRICTAS QUE DEBES OBEDECER:
-            1. ESTÁ PROHIBIDO dar explicaciones teóricas generales o definir qué es la Regla de Lipinski/Veber.
-            2. DEBES hacer el análisis fila por fila (molécula por molécula).
-            3. Usa SÓLO los valores numéricos presentes en la tabla. Si no tienes LogP o donadores de H, evalúa únicamente con los datos que SÍ tienes (ej. MW). No te quejes de que faltan datos.
+            # --- NUEVO: Prompt balanceado y parámetro de temperatura ---
+            instrucciones_sistema = f"""
+            Eres un sistema automatizado de análisis quimioinformático. Tu función es extraer los valores de la tabla CSV proporcionada y rellenar una plantilla de reporte para cada fila.
+            {texto_leyenda}
+            Instrucciones:
+            1. Ve directo a los resultados. Omite cualquier introducción, saludo o definición teórica.
+            2. Procesa cada fila de la tabla individualmente.
+            3. Analiza únicamente usando los descriptores numéricos presentes.
             
-            DEBES USAR ESTE FORMATO EXACTO para cada fila que leas:
-            
-            🔹 Molécula: [Nombre, ID o número de fila]
-            - Valores extraídos: [Menciona los números exactos de la tabla, ej: MW = 664.86, Sv = 55.14]
-            - Evaluación de Reglas: [Evalúa solo con los valores extraídos. Ej: El MW es mayor a 500, por lo que viola una regla de Lipinski.]
-            - Predicción: [Tu análisis breve basado en estos números.]
+            Plantilla obligatoria por molécula:
+            🔹 Molécula: [ID o Nombre]
+            - Valores extraídos: [Lista de los valores numéricos de la tabla]
+            - Evaluación: [Evaluación de las propiedades farmacocinéticas según los datos disponibles]
+            - Predicción: [Predicción de biodisponibilidad/permeabilidad]
             """
             
-            prompt_usuario = f"Aquí tienes la tabla de datos CSV. Procede con el análisis fila por fila usando la estructura obligatoria:\n\n{datos_texto}"
+            prompt_usuario = f"Genera el reporte usando la plantilla para la siguiente tabla:\n\n{datos_texto}"
             
             # Llamada a la API mientras mostramos un mensaje de carga
             with st.spinner('Analizando el espacio químico...'):
@@ -100,13 +109,22 @@ if archivo_csv is not None:
                         messages=[
                             {"role": "system", "content": instrucciones_sistema},
                             {"role": "user", "content": prompt_usuario}
-                        ]
+                        ],
+                        temperature=0.1, # Esto apaga la creatividad y lo hace analítico
+                        max_tokens=1500  # Asegura que tenga espacio para responder
                     )
+                    
+                    texto_respuesta = respuesta.choices[0].message.content
                     
                     # Mostrar el resultado
                     st.success("¡Análisis completado!")
                     st.markdown("### 📊 Interpretación Farmacológica")
-                    st.write(respuesta.choices[0].message.content)
+                    
+                    # Verificación por si la IA devuelve vacío
+                    if not texto_respuesta.strip():
+                        st.warning("⚠️ ChatGPT devolvió una respuesta en blanco. Intenta seleccionar menos columnas o columnas diferentes.")
+                    else:
+                        st.write(texto_respuesta)
                     
                 except Exception as e:
                     st.error(f"Hubo un error al conectar con ChatGPT. Revisa la API Key. Detalle: {e}")

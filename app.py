@@ -26,25 +26,47 @@ if archivo_csv is not None:
     st.write("### 📋 Vista previa de tus datos:")
     st.dataframe(df.head()) # Muestra las primeras filas para confirmar que cargó bien
     
+    st.write("### ⚙️ Ajuste de Datos para la IA")
+    st.info("Para no saturar la memoria de ChatGPT, selecciona las columnas más relevantes y la cantidad de moléculas.")
+    
+    # 1. Selector inteligente de columnas
+    todas_columnas = df.columns.tolist()
+    # Intentar sugerir automáticamente columnas importantes por su nombre
+    columnas_sugeridas = [col for col in todas_columnas if any(kw in col.upper() for kw in ['MW', 'LOGP', 'TPSA', 'HACC', 'HDON', 'NAME', 'ID'])]
+    if not columnas_sugeridas:
+        columnas_sugeridas = todas_columnas[:10] # Si no encuentra comunes, sugiere las primeras 10
+        
+    columnas_seleccionadas = st.multiselect(
+        "Selecciona los descriptores (columnas) a analizar:", 
+        options=todas_columnas, 
+        default=columnas_sugeridas
+    )
+    
+    # 2. Control de filas (moléculas)
+    num_filas = st.slider("Número de moléculas (filas) a incluir:", min_value=1, max_value=50, value=5)
+    
     # 3. Botón para iniciar el análisis
     if st.button("🧠 Analizar e Interpretar Datos"):
         if not api_key:
             st.error("⚠️ Por favor, ingresa la API Key en el menú lateral izquierdo primero.")
+        elif not columnas_seleccionadas:
+            st.warning("⚠️ Por favor, selecciona al menos una columna de la lista.")
         else:
             # Inicializar el cliente de OpenAI con la llave ingresada
             client = OpenAI(api_key=api_key)
             
-            # --- SOLUCIÓN DEFINITIVA AL LÍMITE DE MEMORIA ---
-            # 1. Tomamos máximo las primeras 15 columnas y 3 filas
-            columnas_maximas = min(15, len(df.columns))
-            df_reducido = df.iloc[:3, :columnas_maximas]
+            # --- NUEVA SOLUCIÓN AMPLIADA Y DINÁMICA ---
+            # Tomamos exactamente las filas y columnas que elegiste en la interfaz
+            df_reducido = df.iloc[:num_filas][columnas_seleccionadas]
             
-            # 2. Convertimos a texto
+            # Convertimos a texto
             datos_texto = df_reducido.to_csv(index=False)
             
-            # 3. Cortamos el texto por la fuerza a 1500 caracteres (aprox 400 tokens)
-            # Esto garantiza que NUNCA vuelva a exceder el límite de ChatGPT.
-            datos_texto = datos_texto[:1500]
+            # Ampliamos el límite seguro a 35,000 caracteres (aprox. 9,000 tokens)
+            # Esto te permite mandar mucha más data sin romper ChatGPT
+            if len(datos_texto) > 35000:
+                st.warning("⚠️ Los datos seleccionados rozan el límite de memoria. Se analizará la mayor cantidad posible (se recortará el exceso).")
+                datos_texto = datos_texto[:35000]
             
             # Instrucción detallada para la IA
             prompt_quimico = f"""

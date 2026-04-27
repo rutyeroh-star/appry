@@ -20,8 +20,8 @@ st.sidebar.caption("La llave proporcionada por el profesor no se guarda, solo se
 archivo_csv = st.file_uploader("Sube tu archivo de descriptores (.csv)", type=["csv"])
 
 if archivo_csv is not None:
-    # Leer el archivo con pandas (ajustado para separar por punto y coma)
-    df = pd.read_csv(archivo_csv, sep=';')
+    # Leer el archivo haciendo que Pandas adivine automáticamente el separador
+    df = pd.read_csv(archivo_csv, sep=None, engine='python')
     
     st.write("### 📋 Vista previa de tus datos:")
     st.dataframe(df.head()) # Muestra las primeras filas para confirmar que cargó bien
@@ -34,10 +34,17 @@ if archivo_csv is not None:
             # Inicializar el cliente de OpenAI con la llave ingresada
             client = OpenAI(api_key=api_key)
             
-            # Reducimos los datos para no exceder la memoria de ChatGPT (Error de Tokens)
-            # Tomamos solo las primeras 3 filas y las primeras 40 columnas
-            columnas_reducidas = df.columns[:40]
-            datos_texto = df.head(3)[columnas_reducidas].to_csv(index=False)
+            # --- SOLUCIÓN DEFINITIVA AL LÍMITE DE MEMORIA ---
+            # 1. Tomamos máximo las primeras 15 columnas y 3 filas
+            columnas_maximas = min(15, len(df.columns))
+            df_reducido = df.iloc[:3, :columnas_maximas]
+            
+            # 2. Convertimos a texto
+            datos_texto = df_reducido.to_csv(index=False)
+            
+            # 3. Cortamos el texto por la fuerza a 1500 caracteres (aprox 400 tokens)
+            # Esto garantiza que NUNCA vuelva a exceder el límite de ChatGPT.
+            datos_texto = datos_texto[:1500]
             
             # Instrucción detallada para la IA
             prompt_quimico = f"""
